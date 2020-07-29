@@ -4,9 +4,6 @@ library(tidyverse)
 library(httr)
 library(jsonlite)
 
-# Variables
-full_refresh <- FALSE
-
 # Get authentication token
 credentials <- read_yaml('credentials.yaml')
 
@@ -50,7 +47,7 @@ message(paste("Found", nrow(activities), " activities"))
 
 # Get all of segment efforts
 # TODO: Skip activity if efforts have previously been downloaded
-efforts <- NA
+efforts <- data.frame()
 for (activity in activities[['id']]) {
   message(activity)
   i <- 1
@@ -68,13 +65,8 @@ for (activity in activities[['id']]) {
         done <- TRUE
       }
       i <- i + 1
-      if (is.na(efforts)) {
-        efforts <- efforts_new
-      }
-      else {
-        efforts <- efforts %>%
-          bind_rows(efforts_new)
-      }
+      efforts <- efforts %>%
+        bind_rows(efforts_new)
     }
     else {
       done <- TRUE
@@ -102,12 +94,7 @@ segments_stripped <- efforts %>%
   select(-c(n, i))
   
 efforts_stripped <- efforts %>%
-  select(segment.id, activity.id, start_date_local, moving_time) %>%
-  # Is this the first effort for this segment?
-  arrange(segment.id, start_date_local) %>%
-  group_by(segment.id) %>%
-  mutate(is_first = row_number() == 1) %>%
-  ungroup()
+  select(segment.id, activity.id, start_date_local, moving_time)
 
 # Read in existing KOM data
 if (file.exists("koms.csv")) {
@@ -125,7 +112,7 @@ koms_raw <- data.frame(segment.id = as.integer(),
 
 for (segment in segments_stripped$segment.id) {
   # Skip if we already have times for this segment unless doing full refresh
-  if (full_refresh | !segment %in% koms$segment.id) {
+  if (!segment %in% koms$segment.id) {
     webpage <- read_html(paste0('https://www.strava.com/segments/', segment))
     rank_data_html <- html_nodes(webpage,'.track-click')
     
@@ -165,8 +152,8 @@ koms_updated <- koms %>%
   bind_rows(koms_processed %>%
               select(segment.id, kom_time, qom_time))
 
-# Write data
+# Write data  
 write.csv(activities_stripped, "activities.csv", row.names=FALSE)
 write.csv(segments_stripped, "segments.csv", row.names=FALSE)
 write.csv(efforts_stripped, "efforts.csv", row.names=FALSE)
-write.csv(koms_processed, "koms.csv", row.names=FALSE)
+write.csv(koms_updated, "koms.csv", row.names=FALSE)
