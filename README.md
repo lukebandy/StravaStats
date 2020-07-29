@@ -6,8 +6,8 @@ The main questions that the report currently sets out to answer are:
 * Are my segment times improving?
 * How are my segment times compared to the KOM/QOM across a whole activity?
 
-![Segments page](screenshot_segments.png)
-![KOM comparison page](screenshot_kom.png)
+![Segments page](screenshot_segments.PNG)
+![KOM comparison page](screenshot_kom.PNG)
 
 ## Setup
 
