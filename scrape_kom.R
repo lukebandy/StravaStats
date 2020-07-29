@@ -2,13 +2,6 @@
 library(tidyverse)
 library(rvest)
 
-# Read in existing KOM data
-if (file.exists("koms.csv")) {
-  koms <- read.csv("koms.csv")
-} else {
-  koms <- data.frame()
-}
-
 # Scrape KOMs for segments found in scrape_efforts.R
 koms_raw <- data.frame(segment.id = as.integer(), 
                        kom_text = as.character(),
@@ -50,14 +43,5 @@ koms_processed <- koms_raw %>%
          qom_minutes = as.integer(qom_minutes),
          qom_time = (qom_minutes * 60) + qom_seconds)
 
-# Append to previous KOMs
-koms_updated <- koms %>%
-  bind_rows(koms_processed %>%
-              select(segment.id, extraction_date, kom_time, qom_time)) %>%
-  # Only write if one of the times has actually gone down
-  arrange(segment.id, extraction_date) %>%
-  group_by(segment.id, kom_time, qom_time) %>%
-  slice_head(n=1)
-
 # Write data
-write.csv(koms_updated, "koms.csv", row.names=FALSE)
+write.csv(koms_processed, "koms.csv", row.names=FALSE)
