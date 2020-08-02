@@ -3,6 +3,7 @@ library(yaml)
 library(tidyverse)
 library(httr)
 library(jsonlite)
+library(rvest)
 
 # Get authentication token
 credentials <- read_yaml('credentials.yaml')
@@ -94,7 +95,7 @@ segments_stripped <- efforts %>%
   select(-c(n, i))
   
 efforts_stripped <- efforts %>%
-  select(segment.id, activity.id, start_date_local, moving_time)
+  select(segment.id, activity.id, start_date_local, time = elapsed_time)
 
 # Read in existing KOM data
 if (file.exists("koms.csv")) {
@@ -157,3 +158,11 @@ write.csv(activities_stripped, "activities.csv", row.names=FALSE)
 write.csv(segments_stripped, "segments.csv", row.names=FALSE)
 write.csv(efforts_stripped, "efforts.csv", row.names=FALSE)
 write.csv(koms_updated, "koms.csv", row.names=FALSE)
+
+if (!file.exists("leaderboard.csv")) {
+  write.csv(data.frame(segment.id = as.integer(), 
+                       position = as.integer(),
+                       time = as.integer()), 
+            "leaderboards.csv", 
+            row.names=FALSE)
+}
