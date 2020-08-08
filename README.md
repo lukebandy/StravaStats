@@ -5,9 +5,11 @@ The main questions that the report currently sets out to answer are:
 * Which segements do I ride the most?
 * Are my segment times improving?
 * How are my segment times compared to the KOM/QOM across a whole activity?
+* The Monthly Activities comparison graph on the Strava app is cool, but what is this month looking like compared to all previous months? And how does my distance compare, not just my movement time?
 
 ![Segments page](screenshot_segments.PNG)
 ![KOM comparison page](screenshot_kom.PNG)
+![Monthly comparison page](screenshot_monthly.PNG)
 
 ## Setup
 
