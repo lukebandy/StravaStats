@@ -23,7 +23,12 @@ token <- oauth2.0_token(
 # TODO: Stop once old activities have been reached
 i <- 1
 done <- FALSE
-activities <- NA
+if (file.exists("activities.csv")) {
+  activities_stripped <- read.csv("activities.csv")
+} else {
+  activities_stripped <- data.frame(id = as.integer())
+}
+activities_new <- data.frame()
 while(!done) {
   req <- GET(
     url = 'https://www.strava.com/api/v3/athlete/activities',
@@ -31,58 +36,66 @@ while(!done) {
     query = list(per_page = 200, 
                  page = i)
   )
-  activities_new <- fromJSON(content(req, as = 'text'), flatten = T)
-  if (nrow(activities_new) < 200) {
+  activities_page <- fromJSON(content(req, as = 'text'), flatten = T)
+  if (nrow(activities_page) < 200) {
     done <- TRUE
   }
   i <- i + 1
-  if (is.na(activities)) {
-    activities <- activities_new
-  }
-  else {
-    activities <- activities %>%
-      bind_rows(activities_new)
-  }
+  activities_new <- activities_new %>%
+    bind_rows(activities_page)
 }
-message(paste("Found", nrow(activities), " activities"))
+activities_new <- activities_new %>%
+  filter(! id %in% activities_stripped$id)
+message(paste("Found", nrow(activities_new), "new activities"))
 
 # Get all of segment efforts
-# TODO: Skip activity if efforts have previously been downloaded
-efforts <- data.frame()
-for (activity in activities[['id']]) {
+if (file.exists("efforts.csv")) {
+  efforts_stripped <- read.csv("efforts.csv")
+} else {
+  efforts_stripped <- data.frame(activity.id = as.integer())
+}
+efforts_new <- data.frame(segment.id = as.integer(), 
+                          activity.id = as.integer(), 
+                          start_date_local = as.character(), 
+                          elapsed_time = as.integer(), 
+                          segment.name = as.character(), 
+                          segment.start_latitude = as.numeric(), 
+                          segment.start_longitude = as.numeric(), 
+                          segment.distance = as.numeric())
+for (activity in activities_new[['id']]) {
   message(activity)
-  i <- 1
-  done <- FALSE
-  while(!done) {
-    req <- GET(
-      url = paste0('https://www.strava.com/api/v3/activities/', activity),
-      config = token,
-      query = list(per_page = 200, 
-                   page = i)
-    )
-    efforts_new <- fromJSON(content(req, as = 'text'), flatten = T)[['segment_efforts']]
-    if (length(efforts_new) > 0) {
-      if (nrow(efforts_new) < 200) {
-        done <- TRUE
-      }
-      i <- i + 1
-      efforts <- efforts %>%
-        bind_rows(efforts_new)
-    }
-    else {
-      done <- TRUE
-    }
-  }
+  req <- GET(
+    url = paste0('https://www.strava.com/api/v3/activities/', activity),
+    config = token,
+    query = list(include_all_efforts = TRUE)
+  )
+  efforts_page <- fromJSON(content(req, as = 'text'), flatten = T)[['segment_efforts']]
+  efforts_new <- efforts_new %>%
+    bind_rows(efforts_page)
 }
 
 # Strip back data for writing
-activities_stripped <- activities %>%
-  select(id, start_date_local, name, type, distance, average_speed)
+efforts_stripped <- efforts_stripped %>%
+  bind_rows(efforts_new %>%
+              select(segment.id, activity.id, start_date_local, time = elapsed_time))
 
-segments_stripped <- efforts %>%
-  # Get required info
-  select(segment.id, segment.name, segment.start_latitude, segment.start_longitude, segment.distance) %>%
-  distinct() %>%
+activities_stripped <- activities_stripped %>%
+  bind_rows(activities_new %>%
+              select(id, start_date_local, name, type, distance, average_speed, 
+                     moving_time, total_elevation_gain, gear_id))
+
+if (file.exists("segments.csv")) {
+  segments_stripped <- read.csv("segments.csv")
+} else {
+  segments_stripped <- data.frame()
+}
+
+segments_stripped <- segments_stripped %>% 
+  bind_rows(
+    efforts_new %>%
+    # Get required info
+    select(segment.id, segment.name, segment.start_latitude, segment.start_longitude, segment.distance) %>%
+    distinct()) %>%
   # Increment names to remove duplicates
   group_by(segment.name) %>%
   add_tally() %>%
@@ -93,9 +106,6 @@ segments_stripped <- efforts %>%
     TRUE ~ paste0(segment.name, " (", i, ")")
   )) %>%
   select(-c(n, i))
-  
-efforts_stripped <- efforts %>%
-  select(segment.id, activity.id, start_date_local, time = elapsed_time)
 
 # Read in existing KOM data
 if (file.exists("koms.csv")) {
@@ -107,6 +117,7 @@ if (file.exists("koms.csv")) {
 }
 
 # Scrape KOMs for segments found in scrape_efforts.R
+# TODO: Accept hazardous segment waiver?
 koms_raw <- data.frame(segment.id = as.integer(), 
                        kom_text = as.character(),
                        qom_text = as.character())
