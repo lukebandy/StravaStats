@@ -93,9 +93,10 @@ if (file.exists("segments.csv")) {
 segments_stripped <- segments_stripped %>% 
   bind_rows(
     efforts_new %>%
-    # Get required info
-    select(segment.id, segment.name, segment.start_latitude, segment.start_longitude, segment.distance) %>%
-    distinct()) %>%
+      filter(!segment.id %in% segments_stripped$segment.id) %>%
+      # Get required info
+      select(segment.id, segment.name, segment.start_latitude, segment.start_longitude, segment.distance) %>%
+      distinct()) %>%
   # Increment names to remove duplicates
   group_by(segment.name) %>%
   add_tally() %>%
